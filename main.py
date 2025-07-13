@@ -31,18 +31,18 @@ tg_bot = TgBot(token=TELEGRAM_TOKEN)
 # Discord бот
 intents = commands.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+dc_bot = commands.Bot(command_prefix='!', intents=intents)
 
 
-@bot.event
+@dc_bot.event
 async def on_ready():
-    print(f'Logged as {bot.user}')
+    print(f'Logged as {dc_bot.user}')
 
 
-@bot.event
+@dc_bot.event
 async def on_message(message):
     # Ігноруємо приватні повідомлення та свої власні
-    if message.author == bot.user or message.guild is None:
+    if message.author == dc_bot.user or message.guild is None:
         return
 
     if message.channel.id in DISCORD_CHANNEL_IDS:
@@ -56,13 +56,13 @@ async def on_message(message):
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, tg_bot.send_message, TELEGRAM_CHAT_ID, text)
 
-    await bot.process_commands(message)
+    await dc_bot.process_commands(message)
 
 
 ##  MAIN ASYNC ENTRY POINT
 async def amain(args=None):
     log.debug('amain args = %s', args)
-    bot.run(DISCORD_TOKEN)
+    dc_bot.run(DISCORD_TOKEN)
     pass
 
 

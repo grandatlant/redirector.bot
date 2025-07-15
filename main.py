@@ -16,7 +16,8 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # pip install discord.py python-telegram-bot
-from discord.ext import commands
+from discord import Intents
+from discord.ext.commands import Bot as DcBot
 from telegram import Bot as TgBot
 
 # Налаштування
@@ -29,9 +30,9 @@ TELEGRAM_CHAT_ID = 123456789  # id чату/каналу куди надсила
 tg_bot = TgBot(token=TELEGRAM_TOKEN)
 
 # Discord бот
-intents = commands.Intents.default()
+intents = Intents.default()
 intents.message_content = True
-dc_bot = commands.Bot(command_prefix='!', intents=intents)
+dc_bot = DcBot(command_prefix='!', intents=intents)
 
 
 @dc_bot.event
@@ -59,22 +60,10 @@ async def on_message(message):
     await dc_bot.process_commands(message)
 
 
-##  MAIN ASYNC ENTRY POINT
-async def amain(args=None):
-    log.debug('amain args = %s', args)
-    dc_bot.run(DISCORD_TOKEN)
-    pass
-
-
 ##  MAIN ENTRY POINT
 def main(args=None):
     log.debug('main args = %s', args)
-    try:
-        asyncio.run(amain(args))
-    except Exception as ex:
-        log.fatal('Unhandled exception "%s" during asyncio.run execution.', ex)
-        return ex
-    return 0
+    dc_bot.run(DISCORD_TOKEN)
 
 
 if __name__ == '__main__':

@@ -15,55 +15,79 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+# pip install python-dotenv
+from dotenv import dotenv_values
+_env = dotenv_values()
+
 # pip install discord.py python-telegram-bot
 from discord import Intents
 from discord.ext.commands import Bot as DcBot
 from telegram import Bot as TgBot
 
-# Налаштування
-DISCORD_TOKEN = 'your_discord_token'
-DISCORD_CHANNEL_IDS = [1234567890, 2345678901]  # id каналів для відстеження
-TELEGRAM_TOKEN = 'your_telegram_token'
-TELEGRAM_CHAT_ID = 123456789  # id чату/каналу куди надсилати
+DISCORD_TOKEN = _env.get('DISCORD_TOKEN', 'No-Token')
+DISCORD_CHANNEL_IDS = [
+    int(i)
+    for i in _env.get('DISCORD_CHANNEL_IDS', '').split(',')
+    if i
+]
+ALLOWED_MENTION_IDS = []
+ALLOWED_AUTHOR_IDS = []
 
-# Telegram бот (простий інтерфейс)
-tg_bot = TgBot(token=TELEGRAM_TOKEN)
+TELEGRAM_TOKEN = _env.get('TELEGRAM_TOKEN', 'No-Token')
+TELEGRAM_CHAT_ID = int(_env.get('TELEGRAM_CHAT_ID', 0))
 
-# Discord бот
 intents = Intents.default()
 intents.message_content = True
 dc_bot = DcBot(command_prefix='!', intents=intents)
+tg_bot = TgBot(token=TELEGRAM_TOKEN)
+
+
+async def transfer_message(message):
+    #await tg_bot.send_message(TELEGRAM_CHAT_ID, message)
+    #'''
+    await asyncio.get_running_loop().run_in_executor(
+        None,
+        tg_bot.send_message,
+        TELEGRAM_CHAT_ID,
+        message,
+    )
+    #'''
 
 
 @dc_bot.event
 async def on_ready():
-    print(f'Logged as {dc_bot.user}')
+    log.info('Logged in as %s', dc_bot.user)
 
 
 @dc_bot.event
 async def on_message(message):
-    # Ігноруємо приватні повідомлення та свої власні
-    if message.author == dc_bot.user or message.guild is None:
-        return
 
+    if message.author == dc_bot.user or message.guild is None:
+        # Ignore made by bot and private messages
+        return
+    
     if message.channel.id in DISCORD_CHANNEL_IDS:
-        # Фільтрація за згадуваннями
-        mention_ok = any(user.id in ALLOWED_MENTION_IDS for user in message.mentions)
-        # Фільтрація за авторами
-        author_ok = message.author.id in ALLOWED_AUTHOR_IDS
+        
+        mention_ok = True or any(
+            user.id in ALLOWED_MENTION_IDS
+            for user in message.mentions
+        )
+        author_ok = True or message.author.id in ALLOWED_AUTHOR_IDS
 
         if mention_ok or author_ok:
             text = f'**{message.author.display_name}**: {message.content}'
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, tg_bot.send_message, TELEGRAM_CHAT_ID, text)
+            log.info('Got message: %s', text)
+            #await transfer_message(text)
 
     await dc_bot.process_commands(message)
 
 
 ##  MAIN ENTRY POINT
 def main(args=None):
-    log.debug('main args = %s', args)
-    dc_bot.run(DISCORD_TOKEN)
+    token = DISCORD_TOKEN
+    if args and len(args) == 2:
+        token = args[1]
+    dc_bot.run(token)
 
 
 if __name__ == '__main__':

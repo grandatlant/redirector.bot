@@ -3,6 +3,13 @@
 """bots base classes.
 """
 
+__version__ = '0.0.1'
+__all__ = [
+    'BotAdapterProtocol',
+    'BotAdapter',
+    'Adaptee',
+]
+
 from abc import ABC, abstractmethod
 from typing import (
     Optional,
@@ -13,7 +20,7 @@ NoneType: type = type(None)
 
 
 @runtime_checkable
-class BotAdapter(Protocol):
+class BotAdapterProtocol(Protocol):
     """Abstract BotAdapter protocol."""
     @abstractmethod
     def send_message(self, msg, /, *args, **kwargs):
@@ -23,8 +30,7 @@ class BotAdapter(Protocol):
 class Adaptee:
     """Adaptee descriptor class."""
     def __init__(self, t: Optional[type] = NoneType, /):
-        t_is_class = isinstance(t, type)
-        self.cls = t if t_is_class else type(t)
+        self.cls = t if isinstance(t, type) else type(t)
 
     @property
     def has_type(self):
@@ -53,27 +59,25 @@ class Adaptee:
 class _AdapterBase(ABC):
     """Base Adapter logic class."""
     adaptee = Adaptee()
-
-    def __init_subclass__(cls, /, *,
-                          adaptee: Optional[type] = NoneType,
-                          **kwargs):
-        super().__init_subclass__(**kwargs)
-        if adaptee and adaptee is not NoneType:
-            cls.adaptee = Adaptee(adaptee)
-            # need manually call this now
-            cls.adaptee.__set_name__(cls, 'adaptee')
         
-    def __init__(self, adaptee: Optional[object] = None):
+    def __init__(self, adaptee: object):
         self.adaptee = adaptee
 
+    def __repr__(self):
+        return self.__class__.__qualname__ + f'({self.adaptee!r})'
 
-class Adapter(_AdapterBase):
+    def __getattr__(self, name):
+        return getattr(self.adaptee, name)
+
+
+class BotAdapter(_AdapterBase):
     pass
 
 
-class StrAdapter(Adapter, adaptee = str):
+## MAIN ENTRY POINT
+def main():
     pass
 
 
 if __name__ == '__main__':
-    pass
+    main()

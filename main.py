@@ -30,6 +30,7 @@ DISCORD_CHANNEL_IDS = [
     for i in _env.get('DISCORD_CHANNEL_IDS', '').split(',')
     if i
 ]
+# filters. Disabled if (False)
 ALLOWED_MENTION_IDS = []
 ALLOWED_AUTHOR_IDS = []
 
@@ -68,14 +69,20 @@ async def on_message(message):
     
     if message.channel.id in DISCORD_CHANNEL_IDS:
         
-        mention_ok = True or any(
+        mention_ok = not ALLOWED_MENTION_IDS or any(
             user.id in ALLOWED_MENTION_IDS
             for user in message.mentions
         )
-        author_ok = True or message.author.id in ALLOWED_AUTHOR_IDS
+        author_ok = not ALLOWED_AUTHOR_IDS or (
+            message.author.id in ALLOWED_AUTHOR_IDS
+        )
 
         if mention_ok or author_ok:
-            text = f'**{message.author.display_name}**: {message.content}'
+            guild = message.channel.guild.name
+            channel = message.channel.name
+            author = message.author.display_name
+            content = message.content
+            text = f'{guild}.{channel}: {author}: {content}'
             log.info('Got message: %s', text)
             #await transfer_message(text)
 

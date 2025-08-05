@@ -1,2 +1,2 @@
-# bridgebot - bridge between chats and messagers
+# redirector.bot - redirect messages between chats
 

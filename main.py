@@ -6,6 +6,15 @@
 import sys
 import asyncio
 
+# pip install discord.py python-telegram-bot
+import telegram
+import discord
+from discord.ext.commands import Bot as DiscordBot
+
+# pip install python-dotenv
+from dotenv import dotenv_values
+_env = dotenv_values()
+
 import logging
 logging.basicConfig(
     level = logging.DEBUG if __debug__ else logging.INFO,
@@ -15,35 +24,27 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# pip install python-dotenv
-from dotenv import dotenv_values
-_env = dotenv_values()
-
-# pip install discord.py python-telegram-bot
-from discord import Intents
-from discord.ext.commands import Bot as DcBot
-from telegram import Bot as TgBot
-
-DISCORD_TOKEN = _env.get('DISCORD_TOKEN', 'No-Token')
+DISCORD_TOKEN = _env.get('DISCORD_TOKEN') or 'No-Token'
 DISCORD_CHANNEL_IDS = [
     int(i)
-    for i in _env.get('DISCORD_CHANNEL_IDS', '').split(',')
+    for i in (_env.get('DISCORD_CHANNEL_IDS') or '').split(',')
     if i
 ]
-# filters. Disabled if (False)
+# Additional filters. Disabled if (False)
 ALLOWED_MENTION_IDS = []
 ALLOWED_AUTHOR_IDS = []
 
-TELEGRAM_TOKEN = _env.get('TELEGRAM_TOKEN', 'No-Token')
-TELEGRAM_CHAT_ID = int(_env.get('TELEGRAM_CHAT_ID', 0))
+TELEGRAM_TOKEN = _env.get('TELEGRAM_TOKEN') or 'No-Token'
+TELEGRAM_CHAT_ID = int(_env.get('TELEGRAM_CHAT_ID') or 0)
 
-intents = Intents.default()
+intents = discord.Intents.default()
 intents.message_content = True
-dc_bot = DcBot(command_prefix='!', intents=intents)
-tg_bot = TgBot(token=TELEGRAM_TOKEN)
+dc_bot = DiscordBot(command_prefix='!', intents=intents)
+
+tg_bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
 
-async def transfer_message(message):
+async def transfer_message(message: str):
     #await tg_bot.send_message(TELEGRAM_CHAT_ID, message)
     #'''
     await asyncio.get_running_loop().run_in_executor(
@@ -61,7 +62,7 @@ async def on_ready():
 
 
 @dc_bot.event
-async def on_message(message):
+async def on_message(message: discord.Message):
 
     if message.author == dc_bot.user or message.guild is None:
         # Ignore made by bot and private messages
@@ -78,8 +79,8 @@ async def on_message(message):
         )
 
         if mention_ok or author_ok:
-            guild = message.channel.guild.name
-            channel = message.channel.name
+            guild = message.guild.name
+            channel = message.channel.name # pyright: ignore[reportAttributeAccessIssue]
             author = message.author.display_name
             content = message.content
             text = f'{guild}.{channel}: {author}: {content}'

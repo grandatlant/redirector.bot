@@ -1,5 +1,5 @@
 #!/usr/bin/env -S python3 -O
-# -*- coding = utf-8 -*-
+# -*- coding: utf-8 -*-
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
@@ -13,6 +13,9 @@
 import sys
 import logging
 import asyncio
+from typing import (
+    List,
+)
 
 import telegram
 import discord
@@ -24,12 +27,14 @@ log = logging.getLogger(__name__)
 _env = dotenv_values()
 
 DISCORD_TOKEN = _env.get('DISCORD_TOKEN') or 'No-Token'
-DISCORD_CHANNEL_IDS = [
-    int(i) for i in (_env.get('DISCORD_CHANNEL_IDS') or '').split(',') if i
+DISCORD_CHANNEL_IDS: List[int] = [
+    int(i.strip())
+    for i in (_env.get('DISCORD_CHANNEL_IDS') or '').split(',')
+    if i.strip()
 ]
 # Additional filters. Disabled if (False)
-ALLOWED_MENTION_IDS = []
-ALLOWED_AUTHOR_IDS = []
+ALLOWED_MENTION_IDS: List[int] = []
+ALLOWED_AUTHOR_IDS: List[int] = []
 
 TELEGRAM_TOKEN = _env.get('TELEGRAM_TOKEN') or 'No-Token'
 TELEGRAM_CHAT_ID = int(_env.get('TELEGRAM_CHAT_ID') or 0)
@@ -42,20 +47,13 @@ tg_bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
 
 async def transfer_message(message: str):
-    # await tg_bot.send_message(TELEGRAM_CHAT_ID, message)
-    #'''
-    await asyncio.get_running_loop().run_in_executor(
-        None,
-        tg_bot.send_message,
-        TELEGRAM_CHAT_ID,
-        message,
-    )
-    #'''
+    log.info('Transferring message %r...', message)
+    await tg_bot.send_message(TELEGRAM_CHAT_ID, message)
 
 
 @dc_bot.event
 async def on_ready():
-    log.info('Logged in as %s', dc_bot.user)
+    log.info('Logged in as %s.', dc_bot.user)
 
 
 @dc_bot.event
@@ -63,6 +61,8 @@ async def on_message(message: discord.Message):
     if message.author == dc_bot.user or message.guild is None:
         # Ignore made by bot and private messages
         return
+
+    tasks = [dc_bot.process_commands(message)]
 
     if message.channel.id in DISCORD_CHANNEL_IDS:
         mention_ok = not ALLOWED_MENTION_IDS or any(
@@ -73,15 +73,16 @@ async def on_message(message: discord.Message):
         )
 
         if mention_ok or author_ok:
+            # Form and transfer message in new async task
             guild = message.guild.name
             channel = message.channel.name  # pyright: ignore[reportAttributeAccessIssue]
             author = message.author.display_name
             content = message.content
             text = f'{guild}.{channel}: {author}: {content}'
             log.info('Got message: %s', text)
-            # await transfer_message(text)
+            tasks.append(transfer_message(text))
 
-    await dc_bot.process_commands(message)
+    await asyncio.gather(*tasks)
 
 
 ##  MAIN ENTRY POINT

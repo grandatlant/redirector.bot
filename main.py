@@ -13,6 +13,7 @@
 import sys
 import logging
 import asyncio
+
 from typing import (
     List,
 )
@@ -23,6 +24,7 @@ from discord.ext.commands import Bot as DiscordBot
 from dotenv import dotenv_values
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG if __debug__ else logging.INFO)
 
 _env = dotenv_values()
 
@@ -62,7 +64,7 @@ async def on_message(message: discord.Message):
         # Ignore made by bot and private messages
         return
 
-    tasks = [dc_bot.process_commands(message)]
+    tasks = [asyncio.create_task(dc_bot.process_commands(message))]
 
     if message.channel.id in DISCORD_CHANNEL_IDS:
         mention_ok = not ALLOWED_MENTION_IDS or any(
@@ -79,8 +81,9 @@ async def on_message(message: discord.Message):
             author = message.author.display_name
             content = message.content
             text = f'{guild}.{channel}: {author}: {content}'
-            log.info('Got message: %s', text)
-            tasks.append(transfer_message(text))
+
+            log.debug('Got message: %s', text)
+            #tasks.append(asyncio.create_task(transfer_message(text)))
 
     await asyncio.gather(*tasks)
 
@@ -92,7 +95,7 @@ def main(args=None):
         stream=sys.stdout,
         format='%(levelname)s:%(name)s:%(message)s',
     )
-    log.info('Running %s on %s', sys.version, sys.platform)
+    log.debug('Running %s on %s', sys.version, sys.platform)
     token = DISCORD_TOKEN
     if args and len(args) == 2:
         token = args[1]

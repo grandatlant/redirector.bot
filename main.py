@@ -23,10 +23,12 @@ import discord
 from discord.ext.commands import Bot as DiscordBot
 from dotenv import dotenv_values
 
+_env = dotenv_values()
+
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG if __debug__ else logging.INFO)
 
-_env = dotenv_values()
+LOG_FORMAT = _env.get('LOG_FORMAT') or '%(levelname)s:%(name)s:%(message)s'
 
 DISCORD_TOKEN = _env.get('DISCORD_TOKEN') or 'No-Token'
 DISCORD_CHANNEL_IDS: List[int] = [
@@ -93,7 +95,7 @@ def main(args=None):
     logging.basicConfig(
         level=logging.DEBUG if __debug__ else logging.INFO,
         stream=sys.stdout,
-        format='%(levelname)s:%(name)s:%(message)s',
+        format=LOG_FORMAT,
     )
     log.debug('Running %s on %s', sys.version, sys.platform)
     token = DISCORD_TOKEN

@@ -10,9 +10,11 @@
 # ///
 """redirector.bot main script."""
 
+import os
 import sys
 import logging
 import asyncio
+
 from typing import (
     List,
 )
@@ -20,28 +22,43 @@ from typing import (
 import telegram
 import discord
 from discord.ext.commands import Bot as DiscordBot
-from dotenv import dotenv_values
+from dotenv import load_dotenv
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG if __debug__ else logging.INFO)
 
-_env = dotenv_values()
+try:
+    load_dotenv()
+except Exception as exc:
+    log.exception('Error occured in load_dotenv(): %r.', exc)
 
-DISCORD_TOKEN = _env.get('DISCORD_TOKEN') or 'No-Token'
+LOG_FORMAT = os.getenv('LOG_FORMAT') or '%(levelname)s:%(name)s:%(message)s'
+
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN') or 'No-Token'
+DISCORD_COMMAND_PREFIX = os.getenv('DISCORD_COMMAND_PREFIX') or '!'
 DISCORD_CHANNEL_IDS: List[int] = [
     int(i.strip())
-    for i in (_env.get('DISCORD_CHANNEL_IDS') or '').split(',')
+    for i in (os.getenv('DISCORD_CHANNEL_IDS') or '').split(',')
     if i.strip()
 ]
-# Additional filters. Disabled if (False)
-ALLOWED_MENTION_IDS: List[int] = []
-ALLOWED_AUTHOR_IDS: List[int] = []
+# Additional filters. Disabled if empty
+DISCORD_ALLOWED_AUTHOR_IDS: List[int] = [
+    int(i.strip())
+    for i in (os.getenv('DISCORD_ALLOWED_AUTHOR_IDS') or '').split(',')
+    if i.strip()
+]
+DISCORD_ALLOWED_MENTION_IDS: List[int] = [
+    int(i.strip())
+    for i in (os.getenv('DISCORD_ALLOWED_MENTION_IDS') or '').split(',')
+    if i.strip()
+]
 
-TELEGRAM_TOKEN = _env.get('TELEGRAM_TOKEN') or 'No-Token'
-TELEGRAM_CHAT_ID = int(_env.get('TELEGRAM_CHAT_ID') or 0)
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN') or 'No-Token'
+TELEGRAM_CHAT_ID = int(os.getenv('TELEGRAM_CHAT_ID') or 0)
 
 intents = discord.Intents.default()
 intents.message_content = True
-dc_bot = DiscordBot(command_prefix='!', intents=intents)
+dc_bot = DiscordBot(command_prefix=DISCORD_COMMAND_PREFIX, intents=intents)
 
 tg_bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
@@ -62,25 +79,26 @@ async def on_message(message: discord.Message):
         # Ignore made by bot and private messages
         return
 
-    tasks = [dc_bot.process_commands(message)]
+    tasks = [asyncio.create_task(dc_bot.process_commands(message))]
 
     if message.channel.id in DISCORD_CHANNEL_IDS:
-        mention_ok = not ALLOWED_MENTION_IDS or any(
-            user.id in ALLOWED_MENTION_IDS for user in message.mentions
+        author_ok = not DISCORD_ALLOWED_AUTHOR_IDS or (
+            message.author.id in DISCORD_ALLOWED_AUTHOR_IDS
         )
-        author_ok = not ALLOWED_AUTHOR_IDS or (
-            message.author.id in ALLOWED_AUTHOR_IDS
+        mention_ok = not DISCORD_ALLOWED_MENTION_IDS or any(
+            user.id in DISCORD_ALLOWED_MENTION_IDS for user in message.mentions
         )
 
-        if mention_ok or author_ok:
+        if author_ok and mention_ok:
             # Form and transfer message in new async task
             guild = message.guild.name
             channel = message.channel.name  # pyright: ignore[reportAttributeAccessIssue]
             author = message.author.display_name
             content = message.content
             text = f'{guild}.{channel}: {author}: {content}'
-            log.info('Got message: %s', text)
-            tasks.append(transfer_message(text))
+
+            log.debug('Got message: %r.', text)
+            tasks.append(asyncio.create_task(transfer_message(text)))
 
     await asyncio.gather(*tasks)
 
@@ -90,14 +108,14 @@ def main(args=None):
     logging.basicConfig(
         level=logging.DEBUG if __debug__ else logging.INFO,
         stream=sys.stdout,
-        format='%(levelname)s:%(name)s:%(message)s',
+        format=LOG_FORMAT,
     )
-    log.info('Running %s on %s', sys.version, sys.platform)
-    token = DISCORD_TOKEN
-    if args and len(args) == 2:
-        token = args[1]
+    log.debug('Running %s on %s', sys.version, sys.platform)
+
+    args = sys.argv[1:] if args is None else args
+    token = args[0] if args else DISCORD_TOKEN
     dc_bot.run(token)
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    sys.exit(main())

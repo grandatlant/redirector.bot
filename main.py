@@ -29,7 +29,7 @@ log.setLevel(logging.DEBUG if __debug__ else logging.INFO)
 
 try:
     load_dotenv()
-except Exception as ecx:
+except Exception as exc:
     log.exception('Error occured in load_dotenv(): %r.', exc)
 
 LOG_FORMAT = os.getenv('LOG_FORMAT') or '%(levelname)s:%(name)s:%(message)s'
@@ -82,11 +82,11 @@ async def on_message(message: discord.Message):
     tasks = [asyncio.create_task(dc_bot.process_commands(message))]
 
     if message.channel.id in DISCORD_CHANNEL_IDS:
-        author_ok = not ALLOWED_AUTHOR_IDS or (
-            message.author.id in ALLOWED_AUTHOR_IDS
+        author_ok = not DISCORD_ALLOWED_AUTHOR_IDS or (
+            message.author.id in DISCORD_ALLOWED_AUTHOR_IDS
         )
-        mention_ok = not ALLOWED_MENTION_IDS or any(
-            user.id in ALLOWED_MENTION_IDS for user in message.mentions
+        mention_ok = not DISCORD_ALLOWED_MENTION_IDS or any(
+            user.id in DISCORD_ALLOWED_MENTION_IDS for user in message.mentions
         )
 
         if author_ok and mention_ok:
@@ -98,7 +98,7 @@ async def on_message(message: discord.Message):
             text = f'{guild}.{channel}: {author}: {content}'
 
             log.debug('Got message: %r.', text)
-            # tasks.append(asyncio.create_task(transfer_message(text)))
+            tasks.append(asyncio.create_task(transfer_message(text)))
 
     await asyncio.gather(*tasks)
 

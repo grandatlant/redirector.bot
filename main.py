@@ -24,15 +24,15 @@ import discord
 from discord.ext.commands import Bot as DiscordBot
 from dotenv import load_dotenv
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG if __debug__ else logging.INFO)
+load_dotenv()
 
-try:
-    load_dotenv()
-except Exception as exc:
-    log.exception('Error occured in load_dotenv(): %r.', exc)
-
+LOG_LEVEL = os.getenv('LOG_LEVEL') or (
+    logging.DEBUG if __debug__ else logging.INFO
+)
 LOG_FORMAT = os.getenv('LOG_FORMAT') or '%(levelname)s:%(name)s:%(message)s'
+
+log = logging.getLogger(__name__)
+log.setLevel(LOG_LEVEL)
 
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN') or 'No-Token'
 DISCORD_COMMAND_PREFIX = os.getenv('DISCORD_COMMAND_PREFIX') or '!'
@@ -106,7 +106,7 @@ async def on_message(message: discord.Message):
 ##  MAIN ENTRY POINT
 def main(args=None):
     logging.basicConfig(
-        level=logging.DEBUG if __debug__ else logging.INFO,
+        level=LOG_LEVEL,
         stream=sys.stdout,
         format=LOG_FORMAT,
     )

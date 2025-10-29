@@ -60,12 +60,11 @@ intents = discord.Intents.default()
 intents.message_content = True
 dc_bot = DiscordBot(command_prefix=DISCORD_COMMAND_PREFIX, intents=intents)
 
-tg_bot = telegram.Bot(token=TELEGRAM_TOKEN)
-
 
 async def transfer_message(message: str):
     log.info('Transferring message %r...', message)
-    await tg_bot.send_message(TELEGRAM_CHAT_ID, message)
+    async with telegram.Bot(token=TELEGRAM_TOKEN) as tg_bot:
+        await tg_bot.send_message(TELEGRAM_CHAT_ID, message)
 
 
 @dc_bot.event

@@ -10,12 +10,17 @@
 # ///
 """redirector.bot main script."""
 
+from __future__ import annotations
+
 import os
 import sys
 import logging
 import asyncio
 
 from typing import (
+    NoReturn,
+    Optional,
+    Union,
     List,
 )
 
@@ -26,16 +31,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-LOG_LEVEL = os.getenv('LOG_LEVEL') or (
+LOG_LEVEL: Union[str, int] = os.getenv('LOG_LEVEL') or (
     logging.DEBUG if __debug__ else logging.INFO
 )
-LOG_FORMAT = os.getenv('LOG_FORMAT') or '%(levelname)s:%(name)s:%(message)s'
+LOG_FORMAT: str = (
+    os.getenv('LOG_FORMAT') or '%(levelname)s:%(name)s:%(message)s'
+)
 
-log = logging.getLogger(__name__)
+log: logging.Logger = logging.getLogger(__name__)
 log.setLevel(LOG_LEVEL)
 
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN') or 'No-Token'
-DISCORD_COMMAND_PREFIX = os.getenv('DISCORD_COMMAND_PREFIX') or '!'
+DISCORD_TOKEN: str = os.getenv('DISCORD_TOKEN') or 'No-Token'
+DISCORD_COMMAND_PREFIX: str = os.getenv('DISCORD_COMMAND_PREFIX') or '!'
 DISCORD_CHANNEL_IDS: List[int] = [
     int(i.strip())
     for i in (os.getenv('DISCORD_CHANNEL_IDS') or '').split(',')
@@ -53,48 +60,52 @@ DISCORD_ALLOWED_MENTION_IDS: List[int] = [
     if i.strip()
 ]
 
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN') or 'No-Token'
-TELEGRAM_CHAT_ID = int(os.getenv('TELEGRAM_CHAT_ID') or 0)
+TELEGRAM_TOKEN: str = os.getenv('TELEGRAM_TOKEN') or 'No-Token'
+TELEGRAM_CHAT_ID: int = int(os.getenv('TELEGRAM_CHAT_ID') or 0)
 
-intents = discord.Intents.default()
+intents: discord.Intents = discord.Intents.default()
 intents.message_content = True
-dc_bot = DiscordBot(command_prefix=DISCORD_COMMAND_PREFIX, intents=intents)
+dc_bot: DiscordBot = DiscordBot(
+    command_prefix=DISCORD_COMMAND_PREFIX, intents=intents
+)
 
 
-async def transfer_message(message: str):
+async def transfer_message(message: str) -> None:
     log.info('Transferring message %r...', message)
     async with telegram.Bot(token=TELEGRAM_TOKEN) as tg_bot:
         await tg_bot.send_message(TELEGRAM_CHAT_ID, message)
 
 
 @dc_bot.event
-async def on_ready():
+async def on_ready() -> None:
     log.info('Logged in as %s.', dc_bot.user)
 
 
 @dc_bot.event
-async def on_message(message: discord.Message):
+async def on_message(message: discord.Message) -> None:
     if message.author == dc_bot.user or message.guild is None:
         # Ignore made by bot and private messages
         return
 
-    tasks = [asyncio.create_task(dc_bot.process_commands(message))]
+    tasks: List[asyncio.Future] = [
+        asyncio.create_task(dc_bot.process_commands(message))
+    ]
 
     if message.channel.id in DISCORD_CHANNEL_IDS:
-        author_ok = not DISCORD_ALLOWED_AUTHOR_IDS or (
+        author_ok: bool = not DISCORD_ALLOWED_AUTHOR_IDS or (
             message.author.id in DISCORD_ALLOWED_AUTHOR_IDS
         )
-        mention_ok = not DISCORD_ALLOWED_MENTION_IDS or any(
+        mention_ok: bool = not DISCORD_ALLOWED_MENTION_IDS or any(
             user.id in DISCORD_ALLOWED_MENTION_IDS for user in message.mentions
         )
 
         if author_ok and mention_ok:
             # Form and transfer message in new async task
-            guild = message.guild.name
-            channel = message.channel.name  # pyright: ignore[reportAttributeAccessIssue]
-            author = message.author.display_name
-            content = message.content
-            text = f'{guild}.{channel}: {author}: {content}'
+            guild: str = message.guild.name
+            channel: str = getattr(message.channel, 'name', 'Unknown')
+            author: str = message.author.display_name
+            content: str = message.content
+            text: str = f'{guild}.{channel}: {author}: {content}'
 
             log.debug('Got message: %r.', text)
             tasks.append(asyncio.create_task(transfer_message(text)))
@@ -103,7 +114,7 @@ async def on_message(message: discord.Message):
 
 
 ##  MAIN ENTRY POINT
-def main(args=None):
+def main(args: Optional[List[str]] = None) -> NoReturn:
     logging.basicConfig(
         level=LOG_LEVEL,
         stream=sys.stdout,
@@ -111,8 +122,9 @@ def main(args=None):
     )
     log.debug('Running %s on %s', sys.version, sys.platform)
 
-    args = sys.argv[1:] if args is None else args
-    token = args[0] if args else DISCORD_TOKEN
+    if args is None:
+        args: List[str] = sys.argv[1:]
+    token: str = args[0] if args else DISCORD_TOKEN
     dc_bot.run(token)
 
 

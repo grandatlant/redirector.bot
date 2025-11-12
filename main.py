@@ -18,7 +18,6 @@ import logging
 import asyncio
 
 from typing import (
-    NoReturn,
     Optional,
     Union,
     List,
@@ -66,23 +65,26 @@ TELEGRAM_CHAT_ID: int = int(os.getenv('TELEGRAM_CHAT_ID') or 0)
 intents: discord.Intents = discord.Intents.default()
 intents.message_content = True
 dc_bot: DiscordBot = DiscordBot(
-    command_prefix=DISCORD_COMMAND_PREFIX, intents=intents
+    command_prefix=DISCORD_COMMAND_PREFIX,
+    intents=intents,
 )
 
 
 async def transfer_message(message: str) -> None:
-    log.info('Transferring message %r...', message)
+    log.debug('%s.transfer_message(%r) call.', __name__, message)
     async with telegram.Bot(token=TELEGRAM_TOKEN) as tg_bot:
         await tg_bot.send_message(TELEGRAM_CHAT_ID, message)
 
 
 @dc_bot.event
 async def on_ready() -> None:
+    # log.debug('dc_bot.on_ready() call.')
     log.info('Logged in as %s.', dc_bot.user)
 
 
 @dc_bot.event
 async def on_message(message: discord.Message) -> None:
+    log.debug('dc_bot.on_message(%r) call.', message)
     if message.author == dc_bot.user or message.guild is None:
         # Ignore made by bot and private messages
         return
@@ -102,19 +104,22 @@ async def on_message(message: discord.Message) -> None:
         if author_ok and mention_ok:
             # Form and transfer message in new async task
             guild: str = message.guild.name
-            channel: str = getattr(message.channel, 'name', 'Unknown')
+            channel: str = getattr(message.channel, 'name', 'Unknown channel')
+
             author: str = message.author.display_name
-            content: str = message.content
+            content: str = message.clean_content
+
             text: str = f'{guild}.{channel}: {author}: {content}'
 
-            log.debug('Got message: %r.', text)
+            log.info('--> Text for transfer: %r.', text)
+
             tasks.append(asyncio.create_task(transfer_message(text)))
 
     await asyncio.gather(*tasks)
 
 
 ##  MAIN ENTRY POINT
-def main(args: Optional[List[str]] = None) -> NoReturn:
+def main(args: Optional[List[str]] = None) -> None:
     logging.basicConfig(
         level=LOG_LEVEL,
         stream=sys.stdout,
@@ -123,7 +128,7 @@ def main(args: Optional[List[str]] = None) -> NoReturn:
     log.debug('Running %s on %s', sys.version, sys.platform)
 
     if args is None:
-        args: List[str] = sys.argv[1:]
+        args = sys.argv[1:]
     token: str = args[0] if args else DISCORD_TOKEN
     dc_bot.run(token)
 

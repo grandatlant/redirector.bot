@@ -53,10 +53,10 @@ DISCORD_ALLOWED_MENTION_IDS: list[int] = [
 
 # Global instance setup
 
+
 class Bot(DiscordBot):
     pass
 
-instance: Bot | None = None
 
 defaults: dict[str, Any] = {
     'command_prefix': os.getenv('DISCORD_COMMAND_PREFIX') or '!',
@@ -68,7 +68,10 @@ defaults: dict[str, Any] = {
 defaults['intents'].message_content = True
 
 
-# Bot events stored here to apply in init() call.
+instance: Bot | None = Bot(**defaults)
+
+
+# Bot events stored here to apply in recreate() call.
 events: list[CoroT] = []
 
 
@@ -134,10 +137,13 @@ async def on_message(message: discord.Message) -> None:
         if should_transfer_message(message):
             # Form and transfer message in new async task
             text = get_message_text(message)
-            log.info('--> Text for transfer: %r. <--', text)
+            log.info('--> Transfering message: %r. <--', text)
             tasks.create_task(transfer_text_message(text))
         else:
-            log.debug('--> Message ignored: "%s". <--', message)
+            log.debug(
+                '--> Message ignored: %r. <--',
+                get_message_text(message),
+            )
 
 
 def should_transfer_message(message: discord.Message) -> bool:
@@ -177,18 +183,29 @@ def __getattr__(name, *args, **kwargs):
     return getattr(instance, name, *args, **kwargs)
 
 
-def init(*args, **kwargs) -> Bot:
+def recreate(*args, **kwargs) -> Bot:
     """Recreate bot instance.
 
     Return value: Bot instance itself.
     """
     global instance
+    log.debug(
+        '%s.recreate(*%r, **%r) call with last instance value %r.',
+        __name__,
+        args,
+        kwargs,
+        instance,
+    )
+
     instance = Bot(*args, **collections.ChainMap(kwargs, defaults))
     register_events()
+
+    log.debug('New instance recreated: %r.', instance)
     return instance
 
 
 def main(*args, **kwargs) -> None:
+    log.debug('%s.main(*%r, **%r) call.', __name__, args, kwargs)
     instance.run(
         token=os.getenv('DISCORD_TOKEN') or 'DISCORD_TOKEN',
         *args,
@@ -198,7 +215,7 @@ def main(*args, **kwargs) -> None:
 
 if instance is None:
     # Init with default values before possible use.
-    init()
+    recreate()
 
 
 if __name__ == '__main__':
